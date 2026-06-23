@@ -136,6 +136,10 @@ def extract_text(filename):
 
 
 
+search_root = input(
+    "Enter folder path to index: "
+).strip().strip('"')
+
 SUPPORTED_EXTENSIONS = (
     ".txt",
     ".md",
@@ -144,12 +148,22 @@ SUPPORTED_EXTENSIONS = (
     ".html"
 )
 
-files = [
-    f for f in os.listdir()
-    if f.lower().endswith(
-        SUPPORTED_EXTENSIONS
-    )
-]
+files = []
+
+for root, dirs, filenames in os.walk(search_root):
+
+    for filename in filenames:
+
+        if filename.lower().endswith(
+            SUPPORTED_EXTENSIONS
+        ):
+
+            full_path = os.path.join(
+                root,
+                filename
+            )
+
+            files.append(full_path)
 
 if not files:
     print("No supported files found")
