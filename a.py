@@ -183,10 +183,32 @@ if results:
     print("\nResults:\n")
 
     for score, matched_terms, filename, phrase_found in results:
-        print(
-            f"{filename} | score={score} | "
+        print(f"{filename} | score={score:.2f} | "
             f"matched={matched_terms}/{len(query)} | "
-            f"phrase_match={phrase_found}"
-        )
+            f"phrase_match={phrase_found}")
+
+        with open(filename, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        snippet = ""
+
+        for word in query:
+
+            pos = content.lower().find(word.lower())
+
+            if pos != -1:
+
+                start = max(0, pos - 50)
+                end = min(len(content), pos + 50)
+
+                snippet = content[start:end]
+
+                break
+
+        if snippet:
+            print(f"Snippet: ...{snippet}...")
+
+        print()
+    
 else:
     print("No matching files found")
