@@ -3,6 +3,12 @@ import re
 import os
 import math
 
+from pypdf import PdfReader
+from docx import Document
+from bs4 import BeautifulSoup
+
+
+
 class TrieNode:
     def __init__(self):
         self.children = {}
@@ -46,12 +52,6 @@ class Trie:
 
         return results
 
-files = [f for f in os.listdir() if f.endswith(".txt")]
-total_docs = len(files)
-doc_lengths = {}
-
-inverted_index = defaultdict(lambda: defaultdict(list))
-trie = Trie()
 
 def levenshtein(a, b):
     rows = len(a) + 1
@@ -81,20 +81,104 @@ def levenshtein(a, b):
 
     return dp[-1][-1]
 
+def extract_text(filename):
+    ext = os.path.splitext(filename)[1].lower()
+
+    try:
+        if ext in [".txt", ".md"]:
+            with open(
+                filename,
+                "r",
+                encoding="utf-8",
+                errors="ignore"
+            ) as f:
+                return f.read()
+
+        elif ext == ".pdf":
+            reader = PdfReader(filename)
+
+            text = ""
+
+            for page in reader.pages:
+                text += page.extract_text() or ""
+
+            return text
+
+        elif ext == ".docx":
+            doc = Document(filename)
+
+            return "\n".join(
+                p.text
+                for p in doc.paragraphs
+            )
+
+        elif ext == ".html":
+            with open(
+                filename,
+                "r",
+                encoding="utf-8",
+                errors="ignore"
+            ) as f:
+
+                soup = BeautifulSoup(
+                    f.read(),
+                    "html.parser"
+                )
+
+                return soup.get_text()
+
+    except Exception as e:
+        print(
+            f"Error reading {filename}: {e}"
+        )
+
+    return ""
+
+
+
+SUPPORTED_EXTENSIONS = (
+    ".txt",
+    ".md",
+    ".pdf",
+    ".docx",
+    ".html"
+)
+
+files = [
+    f for f in os.listdir()
+    if f.lower().endswith(
+        SUPPORTED_EXTENSIONS
+    )
+]
+
+if not files:
+    print("No supported files found")
+    raise SystemExit(0)
+
+total_docs = len(files)
+doc_lengths = {}
+documents = {}
+
+inverted_index = defaultdict(lambda: defaultdict(list))
+trie = Trie()
 
 
 # Build index
 for filename in files:
-    with open(filename, "r", encoding="utf-8") as file:
-        words = re.findall(
-            r"[a-zA-Z]+(?:'[a-zA-Z]+)?",
-            file.read().lower()
-        )
-        doc_lengths[filename] = len(words)
+    text = extract_text(filename)
+    documents[filename] = text
 
-        for position, word in enumerate(words):
-            inverted_index[word][filename].append(position)
-            trie.insert(word)
+    words = re.findall(
+        r"[a-zA-Z]+(?:'[a-zA-Z]+)?",
+        text.lower()
+    )       
+    doc_lengths[filename] = len(words)
+
+    for position, word in enumerate(words):
+        inverted_index[word][filename].append(position)
+
+    for word in set(words):
+        trie.insert(word)
 
 avg_doc_length = (
     sum(doc_lengths.values()) /
@@ -182,6 +266,9 @@ for filename in files:
 
             score += bm25
 
+    if matched_terms == 0:
+        continue
+
     # Phrase bonus
     phrase_found = False
 
@@ -233,8 +320,7 @@ if results:
             f"matched={matched_terms}/{len(query)} | "
             f"phrase_match={phrase_found}")
 
-        with open(filename, "r", encoding="utf-8") as f:
-            content = f.read()
+        content = documents[filename]
 
         snippet = ""
 
