@@ -3,10 +3,55 @@ import re
 import os
 import math
 
+class TrieNode:
+    def __init__(self):
+        self.children = {}
+        self.is_word = False
+
+
+class Trie:
+    def __init__(self):
+        self.root = TrieNode()
+
+    def insert(self, word):
+        node = self.root
+
+        for ch in word:
+            if ch not in node.children:
+                node.children[ch] = TrieNode()
+
+            node = node.children[ch]
+
+        node.is_word = True
+
+    def starts_with(self, prefix):
+        node = self.root
+
+        for ch in prefix:
+            if ch not in node.children:
+                return []
+
+            node = node.children[ch]
+
+        results = []
+
+        def dfs(curr_node, current_word):
+            if curr_node.is_word:
+                results.append(current_word)
+
+            for ch, child in curr_node.children.items():
+                dfs(child, current_word + ch)
+
+        dfs(node, prefix)
+
+        return results
+
 files = [f for f in os.listdir() if f.endswith(".txt")]
 total_docs = len(files)
 doc_lengths = {}
 
+inverted_index = defaultdict(lambda: defaultdict(list))
+trie = Trie()
 
 def levenshtein(a, b):
     rows = len(a) + 1
@@ -37,7 +82,6 @@ def levenshtein(a, b):
     return dp[-1][-1]
 
 
-inverted_index = defaultdict(lambda: defaultdict(list))
 
 # Build index
 for filename in files:
@@ -50,12 +94,18 @@ for filename in files:
 
         for position, word in enumerate(words):
             inverted_index[word][filename].append(position)
+            trie.insert(word)
 
 avg_doc_length = (
     sum(doc_lengths.values()) /
     len(doc_lengths)
 )
 
+prefix = input("Autocomplete: ").lower()
+
+print(
+    trie.starts_with(prefix)[:10]
+) 
 
 query = input("Enter search query: ").lower().split()
 
@@ -67,11 +117,7 @@ for word in query:
         expanded_query.append(word)
 
     else:
-        prefix_matches = [
-            indexed_word
-            for indexed_word in inverted_index
-            if indexed_word.startswith(word)
-        ]
+        prefix_matches = trie.starts_with(word)
 
         if prefix_matches:
             expanded_query.extend(prefix_matches)
