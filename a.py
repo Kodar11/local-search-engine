@@ -8,6 +8,35 @@ total_docs = len(files)
 doc_lengths = {}
 
 
+def levenshtein(a, b):
+    rows = len(a) + 1
+    cols = len(b) + 1
+
+    dp = [[0] * cols for _ in range(rows)]
+
+    for i in range(rows):
+        dp[i][0] = i
+
+    for j in range(cols):
+        dp[0][j] = j
+
+    for i in range(1, rows):
+        for j in range(1, cols):
+
+            if a[i - 1] == b[j - 1]:
+                cost = 0
+            else:
+                cost = 1
+
+            dp[i][j] = min(
+                dp[i - 1][j] + 1,      # delete
+                dp[i][j - 1] + 1,      # insert
+                dp[i - 1][j - 1] + cost # replace
+            )
+
+    return dp[-1][-1]
+
+
 inverted_index = defaultdict(lambda: defaultdict(list))
 
 # Build index
@@ -29,6 +58,45 @@ avg_doc_length = (
 
 
 query = input("Enter search query: ").lower().split()
+
+expanded_query = []
+
+for word in query:
+
+    if word in inverted_index:
+        expanded_query.append(word)
+
+    else:
+        prefix_matches = [
+            indexed_word
+            for indexed_word in inverted_index
+            if indexed_word.startswith(word)
+        ]
+
+        if prefix_matches:
+            expanded_query.extend(prefix_matches)
+        else:
+
+            best_word = None
+            best_distance = float("inf")
+
+            for indexed_word in inverted_index:
+
+                distance = levenshtein(
+                    word,
+                    indexed_word
+                )
+
+                if distance < best_distance:
+                    best_distance = distance
+                    best_word = indexed_word
+
+            if best_distance <= 2:
+                expanded_query.append(best_word)
+            else:
+                expanded_query.append(word)
+
+query = expanded_query
 
 results = []
 
